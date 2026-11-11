@@ -1,0 +1,74 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model matches {
+  match_id      Int         @id @default(autoincrement())
+  tournament_id Int
+  home_team     String      @db.VarChar(100)
+  away_team     String      @db.VarChar(100)
+  match_date    DateTime    @db.Timestamp(6)
+  stadium       String      @db.VarChar(100)
+  tournaments   tournaments @relation(fields: [tournament_id], references: [tournament_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_match_tournament")
+  seats         seats[]
+}
+
+model order_items {
+  item_id      Int    @id @default(autoincrement())
+  order_id     Int
+  seat_id      Int
+  ticket_token String @unique @db.VarChar(255)
+  orders       orders @relation(fields: [order_id], references: [order_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_item_order")
+  seats        seats  @relation(fields: [seat_id], references: [seat_id], onUpdate: NoAction, map: "fk_item_seat")
+}
+
+model orders {
+  order_id       Int           @id @default(autoincrement())
+  first_name     String        @db.VarChar(100)
+  last_name      String        @db.VarChar(100)
+  email          String        @db.VarChar(150)
+  phone_number   String        @db.VarChar(20)
+  address        String
+  total_amount   Decimal       @db.Decimal(10, 2)
+  bot_risk_score Decimal?      @default(0.00) @db.Decimal(5, 2)
+  status         String        @default("PENDING") @db.VarChar(20)
+  created_at     DateTime      @default(now()) @db.Timestamp(6)
+  order_items    order_items[]
+  payments       payments?
+}
+
+model payments {
+  payment_id     Int       @id @default(autoincrement())
+  order_id       Int       @unique
+  payment_method String    @db.VarChar(50)
+  payment_status String    @default("PENDING") @db.VarChar(20)
+  paid_at        DateTime? @db.Timestamp(6)
+  orders         orders    @relation(fields: [order_id], references: [order_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_payment_order")
+}
+
+model seats {
+  seat_id      Int           @id @default(autoincrement())
+  match_id     Int
+  zone_name    String        @db.VarChar(10)
+  seat_number  String        @db.VarChar(10)
+  price        Decimal       @db.Decimal(10, 2)
+  status       String        @default("AVAILABLE") @db.VarChar(20)
+  locked_until DateTime?     @db.Timestamp(6)
+  lock_token   String?       @db.VarChar(100)
+  order_items  order_items[]
+  matches      matches       @relation(fields: [match_id], references: [match_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_seat_match")
+
+  @@unique([match_id, zone_name, seat_number], map: "uq_match_seat")
+}
+
+model tournaments {
+  tournament_id Int       @id @default(autoincrement())
+  name          String    @db.VarChar(150)
+  type          String    @db.VarChar(50)
+  matches       matches[]
+}
