@@ -6,7 +6,6 @@ import { z } from 'zod';
 import crypto from 'crypto';
 
 dotenv.config();
-
 const app = express();
 const prisma = new PrismaClient();
 const PORT = 4000;
