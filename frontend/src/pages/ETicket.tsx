@@ -1,4 +1,3 @@
-import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { CheckCircle2, QrCode, Printer, Home, User, Calendar } from 'lucide-react';
 
@@ -12,10 +11,10 @@ export default function ETicket() {
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-100 p-4">
         <p className="text-slate-600 mb-4">ไม่พบข้อมูลตั๋วอิเล็กทรอนิกส์</p>
         <button
-          onClick={() => navigate('/checkout')}
+          onClick={() => navigate('/')}
           className="bg-emerald-600 text-white px-5 py-2.5 rounded-xl font-medium"
         >
-          กลับไปหน้าชำระเงิน
+          กลับหน้าหลัก
         </button>
       </div>
     );
@@ -88,10 +87,10 @@ export default function ETicket() {
             <Printer className="w-4 h-4" /> พิมพ์ / บันทึกตั๋ว PDF
           </button>
           <button
-            onClick={() => navigate('/checkout')}
+            onClick={() => navigate('/')}
             className="flex items-center gap-2 bg-slate-800 hover:bg-slate-900 text-white font-semibold px-5 py-2.5 rounded-xl transition"
           >
-            <Home className="w-4 h-4" /> กลับหน้าหลัก
+            <Home className="w-4 h-4" /> กลับหน้ารายการแข่งขัน
           </button>
         </div>
       </div>
