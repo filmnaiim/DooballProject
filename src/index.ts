@@ -4,8 +4,10 @@ import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
 import crypto from 'crypto';
+import nodemailer from 'nodemailer';
 
 dotenv.config();
+
 const app = express();
 const prisma = new PrismaClient();
 const PORT = 4000;
@@ -13,7 +15,106 @@ const PORT = 4000;
 app.use(cors());
 app.use(express.json());
 
-// ฟังก์ชันปลดล็อกที่นั่งที่ติด PENDING เกินเวลา (10 นาที) ให้กลับมาเป็น AVAILABLE อัตโนมัติ
+// ตั้งค่าตัวส่งอีเมลของระบบ (ใช้ Gmail จากไฟล์ .env)
+const mailTransporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
+
+// ฟังก์ชันส่งตั๋ว E-Ticket ไปยังอีเมลที่ลูกค้ากรอกเข้ามาตอนสั่งซื้อ
+async function sendRealTicketEmail(orderData: {
+  order: any;
+  items: any[];
+  payment: any;
+}) {
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    console.warn('⚠️ ยังไม่ได้ตั้งค่า EMAIL_USER และ EMAIL_PASS ในไฟล์ .env ข้ามการส่งอีเมล');
+    return;
+  }
+
+  const { order, items, payment } = orderData;
+  const firstSeat = items[0]?.seat;
+  const match = firstSeat?.matches;
+
+  const matchTitle = match ? `${match.home_team} vs ${match.away_team}` : 'การแข่งขันฟุตบอล';
+  const matchStadium = match ? match.stadium : '-';
+  const matchDate = match
+    ? new Date(match.match_date).toLocaleString('th-TH', {
+        dateStyle: 'long',
+        timeStyle: 'short',
+      })
+    : '-';
+
+  const ticketRowsHtml = items
+    .map(
+      (item) => `
+      <tr>
+        <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">โซน <b>${item.seat.zone_name}</b> - ที่นั่ง <b>${item.seat.seat_number}</b></td>
+        <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; font-family: monospace; color: #2563eb; font-weight: bold; font-size: 15px;">${item.ticket_token}</td>
+        <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: right;">${Number(item.seat.price).toLocaleString()} บาท</td>
+      </tr>
+    `
+    )
+    .join('');
+
+  const htmlContent = `
+    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
+      <div style="background: linear-gradient(135deg, #1e3a8a, #2563eb); color: white; padding: 24px; text-align: center;">
+        <h2 style="margin: 0; font-size: 24px;">⚽ DooBall Official E-Ticket</h2>
+        <p style="margin: 6px 0 0; opacity: 0.9;">ตั๋วอิเล็กทรอนิกส์ยืนยันการเข้าชมการแข่งขันฟุตบอล</p>
+      </div>
+      <div style="padding: 24px; background-color: #ffffff; color: #1f2937;">
+        <p style="font-size: 16px;">สวัสดีคุณ <b>${order.first_name} ${order.last_name}</b>,</p>
+        <p>การสั่งซื้อตั๋วของคุณเสร็จสมบูรณ์แล้ว! นี่คือรายละเอียดตั๋วเข้าชมการแข่งขันของคุณ (หมายเลขคำสั่งซื้อ: <b>#${order.order_id}</b>):</p>
+        
+        <div style="background-color: #f8fafc; padding: 16px; border-radius: 8px; border-left: 4px solid #2563eb; margin: 20px 0;">
+          <p style="margin: 6px 0;">🏟️ <b>คู่แข่งขัน:</b> ${matchTitle}</p>
+          <p style="margin: 6px 0;">📍 <b>สนามแข่งขัน:</b> ${matchStadium}</p>
+          <p style="margin: 6px 0;">📅 <b>วันและเวลา:</b> ${matchDate} น.</p>
+          <p style="margin: 6px 0;">👤 <b>ผู้ซื้อ:</b> ${order.first_name} ${order.last_name} (${order.phone_number})</p>
+          <p style="margin: 6px 0;">💳 <b>การชำระเงิน:</b> ${payment.payment_method} <span style="color: #16a34a; font-weight: bold;">(${payment.payment_status})</span></p>
+        </div>
+
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+          <thead>
+            <tr style="background-color: #f1f5f9; text-align: left;">
+              <th style="padding: 12px;">โซน / ที่นั่ง</th>
+              <th style="padding: 12px;">รหัสตั๋ว (Ticket Token)</th>
+              <th style="padding: 12px; text-align: right;">ราคา</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${ticketRowsHtml}
+          </tbody>
+        </table>
+
+        <h3 style="text-align: right; color: #16a34a; font-size: 20px; margin-top: 10px;">
+          ยอดชำระสุทธิ: ${Number(order.total_amount).toLocaleString()} บาท
+        </h3>
+
+        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
+        <p style="font-size: 13px; color: #6b7280; text-align: center; margin: 0;">
+          กรุณานำอีเมลฉบับนี้พร้อมรหัส <b>Ticket Token</b> ไปแสดงที่จุดตรวจบัตรหน้าสนามเพื่อเข้าชมการแข่งขัน
+        </p>
+      </div>
+    </div>
+  `;
+
+  console.log(`📨 กำลังส่งอีเมลตั๋วไปที่ ${order.email}...`);
+  await mailTransporter.sendMail({
+    from: `"DooBall Ticket System" <${process.env.EMAIL_USER}>`,
+    to: order.email,
+    subject: `🎫 ตั๋วเข้าชมฟุตบอลของคุณ: ${matchTitle} (Order #${order.order_id})`,
+    html: htmlContent,
+  });
+
+  console.log(`✅ ส่งอีเมลตั๋ว E-Ticket ไปยัง ${order.email} สำเร็จแล้ว!`);
+}
+
+// ฟังก์ชันปลดล็อกที่นั่งที่ติด PENDING เกินเวลา (10 นาที)
 async function releaseExpiredSeats() {
   await prisma.seats.updateMany({
     where: {
@@ -28,9 +129,7 @@ async function releaseExpiredSeats() {
   });
 }
 
-// ==========================================
-// 1. API ดึงรายการแข่งขันทั้งหมด (หน้าแรก)
-// ==========================================
+// 1. API ดึงรายการแข่งขันทั้งหมด
 app.get('/api/matches', async (_req: Request, res: Response) => {
   try {
     await releaseExpiredSeats();
@@ -43,16 +142,14 @@ app.get('/api/matches', async (_req: Request, res: Response) => {
       },
       orderBy: { match_date: 'asc' },
     });
-    res.json(matches);
+    return res.json(matches);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึงข้อมูลการแข่งขัน' });
+    return res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึงข้อมูลการแข่งขัน' });
   }
 });
 
-// ==========================================
 // 2. API ดึงผังที่นั่งของแต่ละแมตช์
-// ==========================================
 app.get('/api/matches/:id', async (req: Request, res: Response) => {
   try {
     await releaseExpiredSeats();
@@ -70,22 +167,20 @@ app.get('/api/matches/:id', async (req: Request, res: Response) => {
     if (!match) {
       return res.status(404).json({ message: 'ไม่พบการแข่งขันนี้' });
     }
-    res.json(match);
+    return res.json(match);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึงข้อมูลผังที่นั่ง' });
+    return res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึงข้อมูลผังที่นั่ง' });
   }
 });
 
-// ==========================================
-// 3. API เลือกที่นั่ง -> คัดกรองบอทด้วย AI Telemetry & ล็อกที่นั่งเป็น PENDING (กันคนกดชนกัน)
-// ==========================================
+// 3. API เลือกที่นั่ง & Anti-Bot
 const LockSeatSchema = z.object({
   seatIds: z.array(z.number()).min(1, 'กรุณาเลือกที่นั่งอย่างน้อย 1 ที่นั่ง'),
   telemetry: z.object({
-    timeSpentMs: z.number(),      // เวลาที่ใช้บนหน้าเลือกที่นั่ง (มิลลิวินาที)
-    mouseMoves: z.number(),       // จำนวนการขยับเมาส์
-    honeypot: z.string().optional() // ช่องดักบอท (คนทั่วไปจะมองไม่เห็น)
+    timeSpentMs: z.number(),
+    mouseMoves: z.number(),
+    honeypot: z.string().optional(),
   }),
 });
 
@@ -93,7 +188,6 @@ app.post('/api/seats/lock', async (req: Request, res: Response) => {
   try {
     await releaseExpiredSeats();
 
-    // Validate ข้อมูลด้วย Zod
     const parsed = LockSeatSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ message: 'ข้อมูลไม่ถูกต้อง', errors: parsed.error.flatten() });
@@ -101,19 +195,17 @@ app.post('/api/seats/lock', async (req: Request, res: Response) => {
 
     const { seatIds, telemetry } = parsed.data;
 
-    // --- ระบบ AI / Behavioral Anti-Bot คำนวณคะแนนความเสี่ยงบอท (0 - 100) ---
-    let botRiskScore = 5.0; // คะแนนเริ่มต้นสำหรับผู้ใช้ทั่วไป
+    let botRiskScore = 5.0;
     if (telemetry.honeypot && telemetry.honeypot.trim() !== '') {
-      botRiskScore = 100.0; // บอทเผลอกรอกช่อง Honeypot ที่ซ่อนไว้
+      botRiskScore = 100.0;
     } else {
-      if (telemetry.timeSpentMs < 1200) botRiskScore += 55.0; // กดเร็วผิดมนุษย์ (< 1.2 วินาที)
+      if (telemetry.timeSpentMs < 1200) botRiskScore += 55.0;
       else if (telemetry.timeSpentMs < 2500) botRiskScore += 20.0;
 
-      if (telemetry.mouseMoves < 3) botRiskScore += 35.0; // แทบไม่ขยับเมาส์เลย (สคริปต์คลิกตรงๆ)
+      if (telemetry.mouseMoves < 3) botRiskScore += 35.0;
     }
     botRiskScore = Math.min(100, botRiskScore);
 
-    // ถ้าคะแนนความเสี่ยงบอทตั้งแต่ 75 ขึ้นไป ให้บล็อกทันที!
     if (botRiskScore >= 75) {
       return res.status(403).json({
         message: 'ระบบ AI ตรวจพบพฤติกรรมคล้ายบอทอัตโนมัติ! ไม่อนุญาตให้ทำรายการจองตั๋ว',
@@ -121,12 +213,10 @@ app.post('/api/seats/lock', async (req: Request, res: Response) => {
       });
     }
 
-    // --- ระบบป้องกันคนกดที่นั่งเดียวกันพร้อมกัน (Atomic Transaction) ---
     const lockToken = 'LOCK-' + crypto.randomUUID();
-    const lockedUntil = new Date(Date.now() + 10 * 60 * 1000); // ล็อกนาน 10 นาที
+    const lockedUntil = new Date(Date.now() + 10 * 60 * 1000);
 
     const result = await prisma.$transaction(async (tx) => {
-      // อัปเดตเฉพาะที่นั่งที่สถานะยังเป็น AVAILABLE เท่านั้น
       const updated = await tx.seats.updateMany({
         where: {
           seat_id: { in: seatIds },
@@ -139,7 +229,6 @@ app.post('/api/seats/lock', async (req: Request, res: Response) => {
         },
       });
 
-      // ถ้าจำนวนที่อัปเดตได้ไม่เท่ากับจำนวนที่เลือก แปลว่ามีคนอื่นกดตัดหน้าไปแล้วเสี้ยววินาที!
       if (updated.count !== seatIds.length) {
         throw new Error('SEAT_ALREADY_TAKEN');
       }
@@ -147,7 +236,7 @@ app.post('/api/seats/lock', async (req: Request, res: Response) => {
       return { lockToken, lockedUntil, botRiskScore };
     });
 
-    res.json({
+    return res.json({
       message: 'ล็อกที่นั่งสำเร็จ กรุณาชำระเงินภายใน 10 นาที',
       ...result,
     });
@@ -158,13 +247,11 @@ app.post('/api/seats/lock', async (req: Request, res: Response) => {
       });
     }
     console.error(error);
-    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการล็อกที่นั่ง' });
+    return res.status(500).json({ message: 'เกิดข้อผิดพลาดในการล็อกที่นั่ง' });
   }
 });
 
-// ==========================================
-// 4. API ชำระเงินแบบ Guest (ตรวจสอบด้วย Zod + ออกตั๋ว E-Ticket)
-// ==========================================
+// 4. API ชำระเงินแบบ Guest + ส่งอีเมล
 const CheckoutSchema = z.object({
   firstName: z.string().min(2, 'กรุณากรอกชื่อจริง'),
   lastName: z.string().min(2, 'กรุณากรอกนามสกุล'),
@@ -187,7 +274,6 @@ app.post('/api/orders/checkout', async (req: Request, res: Response) => {
     const { firstName, lastName, email, phoneNumber, address, paymentMethod, seatIds, lockToken, botRiskScore } = parsed.data;
 
     const orderResult = await prisma.$transaction(async (tx) => {
-      // 1. ตรวจสอบว่าที่นั่งยังติด PENDING ด้วย lockToken ของผู้ใช้นี้จริงๆ และยังไม่หมดเวลา
       const lockedSeats = await tx.seats.findMany({
         where: {
           seat_id: { in: seatIds },
@@ -202,10 +288,8 @@ app.post('/api/orders/checkout', async (req: Request, res: Response) => {
         throw new Error('LOCK_EXPIRED_OR_INVALID');
       }
 
-      // 2. คำนวณราคารวม
       const totalAmount = lockedSeats.reduce((sum, seat) => sum + Number(seat.price), 0);
 
-      // 3. สร้างใบสั่งซื้อ (orders)
       const newOrder = await tx.orders.create({
         data: {
           first_name: firstName,
@@ -219,8 +303,7 @@ app.post('/api/orders/checkout', async (req: Request, res: Response) => {
         },
       });
 
-      // 4. สร้างรายการตั๋ว (order_items)
-      const orderItems = [];
+      const orderItems: any[] = [];
       for (const seat of lockedSeats) {
         const token = `TKT-2026-${String(newOrder.order_id).padStart(4, '0')}-${seat.zone_name}${seat.seat_number}`;
         const item = await tx.order_items.create({
@@ -233,7 +316,6 @@ app.post('/api/orders/checkout', async (req: Request, res: Response) => {
         orderItems.push({ ...item, seat });
       }
 
-      // 5. บันทึกการชำระเงิน (payments)
       const payment = await tx.payments.create({
         data: {
           order_id: newOrder.order_id,
@@ -243,7 +325,6 @@ app.post('/api/orders/checkout', async (req: Request, res: Response) => {
         },
       });
 
-      // 6. เปลี่ยนสถานะเก้าอี้จาก PENDING เป็น BOOKED ถาวร
       await tx.seats.updateMany({
         where: { seat_id: { in: seatIds } },
         data: {
@@ -256,8 +337,14 @@ app.post('/api/orders/checkout', async (req: Request, res: Response) => {
       return { order: newOrder, items: orderItems, payment };
     });
 
-    res.status(201).json({
-      message: 'ชำระเงินและออกตั๋วสำเร็จ!',
+    try {
+      await sendRealTicketEmail(orderResult);
+    } catch (emailErr) {
+      console.error('❌ เกิดข้อผิดพลาดในการส่งอีเมล:', emailErr);
+    }
+
+    return res.status(201).json({
+      message: `ชำระเงินสำเร็จ! ระบบได้ส่งตั๋ว E-Ticket ไปที่อีเมล ${email} เรียบร้อยแล้ว`,
       data: orderResult,
     });
   } catch (error: any) {
@@ -267,10 +354,11 @@ app.post('/api/orders/checkout', async (req: Request, res: Response) => {
       });
     }
     console.error(error);
-    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการชำระเงิน' });
+    return res.status(500).json({ message: 'เกิดข้อผิดพลาดในการชำระเงิน' });
   }
 });
 
 app.listen(PORT, () => {
   console.log(`✅ DooBall Backend Server is running on http://localhost:${PORT}`);
+  console.log(`📧 Email Sender Configured: ${process.env.EMAIL_USER ? process.env.EMAIL_USER : '❌ ยังไม่ได้ตั้งค่าใน .env'}`);
 });
