@@ -1,11 +1,10 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Ticket, Shield, Calendar } from 'lucide-react';
+import { Shield, Calendar } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
   const location = useLocation();
 
-  // ไฮไลต์ Step ปัจจุบันตาม URL
   const getStep = () => {
     if (location.pathname === '/' || location.pathname === '/matches') return 1;
     if (location.pathname.includes('/seats')) return 2;
@@ -22,9 +21,7 @@ export const Navbar: React.FC = () => {
         <div className="flex items-center justify-between h-16">
           {/* Logo & Brand */}
           <Link to="/" className="flex items-center gap-2.5 group">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center text-white shadow-md shadow-emerald-500/20 group-hover:scale-105 transition-transform">
-              <Ticket className="w-5 h-5 -rotate-12" />
-            </div>
+            <img src="/logo.png" alt="DooBall Logo" className="w-10 h-10 rounded-xl object-contain" />
             <div>
               <span className="text-xl font-black tracking-tight text-white flex items-center gap-1">
                 DooBall <span className="text-emerald-400 font-extrabold text-sm px-1.5 py-0.5 rounded bg-emerald-950/80 border border-emerald-500/30">TICKET</span>
