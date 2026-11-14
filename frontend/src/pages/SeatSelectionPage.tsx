@@ -29,6 +29,7 @@ export default function SeatSelectionPage() {
   // การเลือกที่นั่ง
   const [selectedSeatIds, setSelectedSeatIds] = useState<number[]>([]);
   const [selectedZone, setSelectedZone] = useState<string>('ALL');
+  const [activeStandZone, setActiveStandZone] = useState<'VIP' | 'A' | 'B' | 'C'>('A');
 
   // สถานะการล็อกที่นั่ง
   const [isLocking, setIsLocking] = useState(false);
@@ -357,26 +358,244 @@ export default function SeatSelectionPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Visual Football Field & Seat Stand (2 Columns) */}
           <div className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6">
-            {/* Visual Pitch Display */}
-            <div className="relative rounded-2xl overflow-hidden border border-emerald-900/60 bg-emerald-950/40 p-6 flex flex-col items-center justify-center text-center shadow-inner">
-              <div className="absolute inset-0 bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:16px_16px] opacity-10 pointer-events-none" />
+        {/* 🏟️ Interactive 360° Stadium Bowl & Zone Selector (Full Capacity Seating) */}
+          <div className="relative overflow-hidden rounded-3xl border border-emerald-500/30 bg-[#040d14] p-5 sm:p-7 shadow-[0_25px_60px_rgba(0,0,0,0.75),0_0_45px_rgba(16,185,129,0.1)]">
+            
+            {/* แสงไฟสปอตไลต์สนามยามค่ำคืน */}
+            <div className="pointer-events-none absolute -top-24 left-1/4 h-52 w-52 rounded-full bg-emerald-500/15 blur-3xl" />
+            <div className="pointer-events-none absolute -bottom-24 right-1/4 h-52 w-52 rounded-full bg-sky-500/15 blur-3xl" />
 
-              {/* Pitch White Markings */}
-              <div className="w-full max-w-md h-24 border-2 border-emerald-500/30 rounded-xl relative flex items-center justify-center">
-                {/* Center Circle */}
-                <div className="w-16 h-16 rounded-full border-2 border-emerald-500/30 absolute" />
-                <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full z-10" />
-                {/* Center Line */}
-                <div className="w-full h-0.5 bg-emerald-500/30 absolute" />
-                {/* Goal Areas */}
-                <div className="w-16 h-6 border-2 border-t-0 border-emerald-500/30 absolute top-0" />
-                <div className="w-16 h-6 border-2 border-b-0 border-emerald-500/30 absolute bottom-0" />
+            {/* ส่วนหัว: ชื่อสนาม & สถานะเลือกโซน */}
+            <div className="relative z-10 mb-5 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                </span>
+                <div>
+                  <h3 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-white">
+                    {match.stadium} • แผนผังอัฒจันทร์ (STADIUM BOWL)
+                  </h3>
+                  <p className="text-[11px] text-slate-400">คลิกที่โซนอัฒจันทร์รอบสนามเพื่อดูมุมมองและตำแหน่งที่นั่ง</p>
+                </div>
               </div>
 
-              <div className="mt-3 text-xs font-bold text-emerald-400/80 uppercase tracking-widest flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5" /> สนามแข่งขัน (PITCH VIEW) • {match.stadium}
+              <div className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-1 text-xs font-bold text-emerald-300">
+                กำลังดู: โซน {activeStandZone}
               </div>
             </div>
+
+            {/* โครงสร้างอัฒจันทร์ล้อมรอบสนาม 4 ทิศทาง (เก้าอี้เต็มความจุ) */}
+            <div className="relative z-10 mx-auto max-w-3xl rounded-[2.2rem] border border-slate-700/80 bg-gradient-to-b from-slate-900/95 via-slate-950 to-slate-900/95 p-3 sm:p-4 shadow-2xl">
+              
+              {/* 1. อัฒจันทร์ด้านบน: โซน VIP (Main West Stand - เต็ม 4 แถว) */}
+              <button
+                type="button"
+                onClick={() => setActiveStandZone('VIP')}
+                className={`group relative mb-2.5 w-full rounded-t-2xl border px-3 py-2.5 transition-all duration-300 ${
+                  activeStandZone === 'VIP'
+                    ? 'border-amber-400 bg-gradient-to-r from-amber-500/25 via-amber-400/30 to-amber-500/25 shadow-[0_0_25px_rgba(251,191,36,0.3)] scale-[1.01]'
+                    : 'border-slate-700/70 bg-slate-800/40 hover:border-amber-400/50 hover:bg-slate-800/80'
+                }`}
+              >
+                <div className="mb-2 flex items-center justify-between text-xs px-1">
+                  <span className="font-bold tracking-wider text-amber-300">★ VIP GRANDSTAND (ฝั่งประธาน)</span>
+                  <span className="rounded bg-amber-400/20 px-2 py-0.5 text-[10px] font-bold text-amber-200">
+                    วิวกลางสนามดีที่สุด
+                  </span>
+                </div>
+                {/* เก้าอี้เรียงเต็ม 4 แถวยาวตลอดแนว */}
+                <div className="flex flex-col gap-1 px-1">
+                  {[34, 36, 38, 40].map((cols, rowIdx) => (
+                    <div key={rowIdx} className="flex justify-center gap-1">
+                      {Array.from({ length: cols }).map((_, colIdx) => (
+                        <span
+                          key={colIdx}
+                          className={`h-1.5 flex-1 rounded-[2px] transition-colors ${
+                            activeStandZone === 'VIP'
+                              ? rowIdx % 2 === 0 ? 'bg-amber-300' : 'bg-amber-400/80'
+                              : 'bg-slate-600/80 group-hover:bg-amber-400/50'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </button>
+
+              {/* แถวกลาง: โซน B (ซ้าย) + สนามฟุตบอล + โซน C (ขวา) */}
+              <div className="grid grid-cols-12 items-stretch gap-2.5">
+                
+                {/* 2. อัฒจันทร์ฝั่งซ้าย: โซน B (เก้าอี้เรียงเต็ม 4 คอลัมน์ x 15 แถว) */}
+                <button
+                  type="button"
+                  onClick={() => setActiveStandZone('B')}
+                  className={`group col-span-2 flex flex-col items-center justify-between rounded-l-2xl border p-2 transition-all duration-300 ${
+                    activeStandZone === 'B'
+                      ? 'border-emerald-400 bg-emerald-500/25 shadow-[0_0_20px_rgba(52,211,153,0.3)] scale-[1.02]'
+                      : 'border-slate-700/70 bg-slate-800/40 hover:border-emerald-400/50 hover:bg-slate-800/80'
+                  }`}
+                >
+                  <span className="text-[10px] font-extrabold text-emerald-400">โซน B</span>
+                  
+                  {/* ตารางเก้าอี้เต็มพื้นที่ฝั่งซ้าย */}
+                  <div className="my-1.5 grid w-full grid-cols-4 gap-1 px-0.5">
+                    {Array.from({ length: 60 }).map((_, i) => (
+                      <span
+                        key={i}
+                        className={`h-1.5 w-full rounded-[2px] transition-colors ${
+                          activeStandZone === 'B'
+                            ? 'bg-emerald-300'
+                            : 'bg-slate-600/80 group-hover:bg-emerald-400/50'
+                        }`}
+                      />
+                    ))}
+                  </div>
+
+                  <span className="text-center text-[9px] leading-tight font-semibold text-slate-300">
+                    หลังโกล<br />เจ้าบ้าน
+                  </span>
+                </button>
+
+                {/* พื้นที่สนามหญ้าตรงกลาง */}
+                <div className="col-span-8 relative flex flex-col justify-between overflow-hidden rounded-xl border-2 border-emerald-400/50 bg-gradient-to-b from-[#0a2e22] via-[#0e3f2f] to-[#08261c] p-2.5 shadow-inner">
+                  {/* ลายตัดหญ้าสลับสี */}
+                  <div
+                    className="pointer-events-none absolute inset-0 opacity-25"
+                    style={{
+                      backgroundImage:
+                        'repeating-linear-gradient(90deg, rgba(16,185,129,0.22) 0px, rgba(16,185,129,0.22) 24px, transparent 24px, transparent 48px)',
+                    }}
+                  />
+
+                  <svg viewBox="0 0 400 230" className="relative z-10 my-auto h-auto w-full" fill="none">
+                    {/* ขอบสนาม */}
+                    <rect x="12" y="10" width="376" height="210" rx="3" stroke="#6ee7b7" strokeWidth="2" />
+                    {/* เส้นกลางสนาม */}
+                    <line x1="200" y1="10" x2="200" y2="220" stroke="#6ee7b7" strokeWidth="1.8" />
+                    <circle cx="200" cy="115" r="34" stroke="#6ee7b7" strokeWidth="1.8" />
+                    <circle cx="200" cy="115" r="3.5" fill="#a7f3d0" />
+                    {/* เขตโทษซ้าย */}
+                    <rect x="12" y="55" width="58" height="120" stroke="#6ee7b7" strokeWidth="1.8" />
+                    <rect x="12" y="85" width="22" height="60" stroke="#6ee7b7" strokeWidth="1.8" />
+                    <circle cx="50" cy="115" r="2.5" fill="#a7f3d0" />
+                    {/* เขตโทษขวา */}
+                    <rect x="330" y="55" width="58" height="120" stroke="#6ee7b7" strokeWidth="1.8" />
+                    <rect x="366" y="85" width="22" height="60" stroke="#6ee7b7" strokeWidth="1.8" />
+                    <circle cx="350" cy="115" r="2.5" fill="#a7f3d0" />
+                  </svg>
+
+                  {/* ป้ายชื่อทีมซ้าย-ขวาในสนาม */}
+                  <div className="relative z-10 mt-1.5 flex items-center justify-between px-1 text-[10px] font-bold">
+                    <span className="rounded bg-emerald-950/90 px-2 py-0.5 text-emerald-300 border border-emerald-500/30">
+                      HOME: {(match as any).home_team || (match as any).homeTeam || 'เจ้าบ้าน'}
+                    </span>
+                    <span className="rounded bg-sky-950/90 px-2 py-0.5 text-sky-300 border border-sky-500/30">
+                      AWAY: {(match as any).away_team || (match as any).awayTeam || 'ทีมเยือน'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 3. อัฒจันทร์ฝั่งขวา: โซน C (เก้าอี้เรียงเต็ม 4 คอลัมน์ x 15 แถว) */}
+                <button
+                  type="button"
+                  onClick={() => setActiveStandZone('C')}
+                  className={`group col-span-2 flex flex-col items-center justify-between rounded-r-2xl border p-2 transition-all duration-300 ${
+                    activeStandZone === 'C'
+                      ? 'border-sky-400 bg-sky-500/25 shadow-[0_0_20px_rgba(56,189,248,0.3)] scale-[1.02]'
+                      : 'border-slate-700/70 bg-slate-800/40 hover:border-sky-400/50 hover:bg-slate-800/80'
+                  }`}
+                >
+                  <span className="text-[10px] font-extrabold text-sky-400">โซน C</span>
+
+                  {/* ตารางเก้าอี้เต็มพื้นที่ฝั่งขวา */}
+                  <div className="my-1.5 grid w-full grid-cols-4 gap-1 px-0.5">
+                    {Array.from({ length: 60 }).map((_, i) => (
+                      <span
+                        key={i}
+                        className={`h-1.5 w-full rounded-[2px] transition-colors ${
+                          activeStandZone === 'C'
+                            ? 'bg-sky-300'
+                            : 'bg-slate-600/80 group-hover:bg-sky-400/50'
+                        }`}
+                      />
+                    ))}
+                  </div>
+
+                  <span className="text-center text-[9px] leading-tight font-semibold text-slate-300">
+                    หลังโกล<br />ทีมเยือน
+                  </span>
+                </button>
+              </div>
+
+              {/* 4. อัฒจันทร์ด้านล่าง: โซน A (East Stand - เก้าอี้เรียงเต็ม 4 แถวยาวตลอดแนว) */}
+              <button
+                type="button"
+                onClick={() => setActiveStandZone('A')}
+                className={`group relative mt-2.5 w-full rounded-b-2xl border px-3 py-2.5 transition-all duration-300 ${
+                  activeStandZone === 'A'
+                    ? 'border-emerald-400 bg-gradient-to-r from-emerald-500/25 via-teal-400/30 to-emerald-500/25 shadow-[0_0_25px_rgba(16,185,129,0.35)] scale-[1.01]'
+                    : 'border-slate-700/70 bg-slate-800/40 hover:border-emerald-400/50 hover:bg-slate-800/80'
+                }`}
+              >
+                {/* เก้าอี้เรียงเต็ม 4 แถวยาวตลอดแนว */}
+                <div className="mb-2 flex flex-col gap-1 px-1">
+                  {[40, 38, 36, 34].map((cols, rowIdx) => (
+                    <div key={rowIdx} className="flex justify-center gap-1">
+                      {Array.from({ length: cols }).map((_, colIdx) => (
+                        <span
+                          key={colIdx}
+                          className={`h-1.5 flex-1 rounded-[2px] transition-colors ${
+                            activeStandZone === 'A'
+                              ? rowIdx % 2 === 0 ? 'bg-emerald-300' : 'bg-emerald-400/80'
+                              : 'bg-slate-600/80 group-hover:bg-emerald-400/50'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex items-center justify-between text-xs px-1">
+                  <span className="font-extrabold tracking-wider text-emerald-300">
+                    ▼ โซน A (EAST STAND • ฝั่งตรงข้ามประธาน)
+                  </span>
+                  <span className="rounded-full bg-emerald-400/20 px-2.5 py-0.5 text-[10px] font-bold text-emerald-200 border border-emerald-400/30">
+                    โซนยอดนิยม • กำลังเปิดจองด้านล่าง
+                  </span>
+                </div>
+              </button>
+            </div>
+
+            {/* แถบสรุปมุมมองของโซนที่คลิกเลือก */}
+            <div className="relative z-10 mt-4 flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900/90 px-4 py-2.5 text-xs">
+              <div className="flex items-center gap-2 text-slate-300">
+                <Sparkles className="h-4 w-4 text-emerald-400 shrink-0" />
+                <span>
+                  {activeStandZone === 'A' && (
+                    <>
+                      <strong className="text-emerald-400">โซน A (East Stand):</strong> มุมมองขนานเส้นข้างสนาม เห็นจังหวะบุกชัดเจนทั้ง 2 ฝั่ง (ตำแหน่งที่นั่งด้านล่างหันหน้าเข้าหาขอบสนามด้านนี้)
+                    </>
+                  )}
+                  {activeStandZone === 'VIP' && (
+                    <>
+                      <strong className="text-amber-300">โซน VIP (West Grandstand):</strong> อัฒจันทร์ฝั่งมีหลังคา ใกล้ซุ้มม้านั่งสำรองและอุโมงค์นักเตะ
+                    </>
+                  )}
+                  {activeStandZone === 'B' && (
+                    <>
+                      <strong className="text-emerald-400">โซน B (Home Goal End):</strong> โซนกองเชียร์ฮาร์ดคอร์ฝั่งเจ้าบ้าน เชียร์ติดขอบหลังประตู
+                    </>
+                  )}
+                  {activeStandZone === 'C' && (
+                    <>
+                      <strong className="text-sky-400">โซน C (Away Goal End):</strong> โซนกองเชียร์ทีมเยือน บรรยากาศเชียร์สนุกเร้าใจหลังประตู
+                    </>
+                  )}
+                </span>
+              </div>
+            </div>
+          </div>
 
             {/* Seats Grid */}
             <div className="space-y-4">
